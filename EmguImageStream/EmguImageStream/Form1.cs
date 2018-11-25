@@ -63,11 +63,11 @@ namespace EmguImageStream {
 		}
 
 		private void FlipVert_CheckedChanged(object sender, EventArgs e) {
-			//TODO flip vert
+			stream.FlipVertical = FlipVert.Checked;
 		}
 
 		private void FlipHoriz_CheckedChanged(object sender, EventArgs e) {
-			//TODO flip horiz
+			stream.FlipHorizontal = FlipHoriz.Checked;
 		}
 	}
 }

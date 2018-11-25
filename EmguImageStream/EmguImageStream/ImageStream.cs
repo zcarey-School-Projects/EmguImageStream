@@ -30,11 +30,37 @@ namespace EmguImageStream{
 		private Stopwatch timer = new Stopwatch();
 		private InputStreamListener temp;
 
-		public int Width { get => capture.Width; }
-		public int Height { get => capture.Height; }
-		public bool IsOpened { get => capture.IsOpened; }
-		public bool FlipHorizontal { get => capture.FlipHorizontal; set => capture.FlipHorizontal = value; }
-		public bool FlipVertical { get => capture.FlipVertical; set => capture.FlipVertical = value; }
+		public int Width { get { lock (streamLock) { if (capture == null) return 0; else return capture.Width; } } }
+		public int Height { get { lock (streamLock) { if (capture == null) return 0; else return capture.Height; } } }
+		public bool IsOpened { get { lock (streamLock) { if (capture == null) return false; else return capture.IsOpened; } } }
+
+		private bool flipHorizontal = false;
+		public bool FlipHorizontal {
+			get {
+				return flipHorizontal;
+			}
+
+			set {
+				lock (streamLock) {
+					flipHorizontal = value;
+					if (capture != null) capture.FlipHorizontal = flipHorizontal;
+				}
+			}
+		}
+
+		private bool flipVertical = false;
+		public bool FlipVertical {
+			get {
+				return flipVertical;
+			}
+
+			set {
+				lock (streamLock) {
+					flipVertical = value;
+					if (capture != null) capture.FlipVertical = flipVertical;
+				}
+			}
+		}
 
 
 		//TODO add capute type (camera, video, image)
@@ -112,6 +138,8 @@ namespace EmguImageStream{
 				Stop();
 				capture = new VideoCapture();
 				capture.ImageGrabbed += onNewImage;
+				capture.FlipHorizontal = flipHorizontal;
+				capture.FlipVertical = flipVertical;
 				imageBuffer = new Mat();
 			}
 		}
@@ -121,6 +149,8 @@ namespace EmguImageStream{
 				Stop();
 				capture = new VideoCapture(index);
 				capture.ImageGrabbed += onNewImage;
+				capture.FlipHorizontal = flipHorizontal;
+				capture.FlipVertical = flipVertical;
 				imageBuffer = new Mat();
 			}
 		}
@@ -131,6 +161,8 @@ namespace EmguImageStream{
 				Stop();
 				capture = new VideoCapture(file);
 				capture.ImageGrabbed += onNewImage;
+				capture.FlipHorizontal = flipHorizontal;
+				capture.FlipVertical = flipVertical;
 				imageBuffer = new Mat();
 			}
 		}
