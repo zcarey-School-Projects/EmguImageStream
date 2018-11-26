@@ -92,6 +92,7 @@ namespace EmguImageStream{
 
 
 		//TODO add capture type (camera, video, image)
+		//TODO add auto-loop option
 
 		public ImageStream(ImageStreamListener streamListener) {
 			this.listener = streamListener;
