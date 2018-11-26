@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
@@ -7,14 +8,22 @@ using Emgu.CV;
 using Emgu.CV.CvEnum;
 
 namespace EmguImageStream{
+
+	/// <summary>
+	/// Allows easier use of various input sources. Loads images from camera, images (including animated GIFs), and videos.
+	/// Also has functions to prompt the user to load a file, or save a screenshot.
+	/// </summary>
 	public class ImageStream : IDisposable {
 
+		//Locks that help with race conditions.
 		private static readonly object streamLock = new object();
 		private static readonly object listenerLock = new object();
 
+		//Used to prompt the user to open/save files
 		private static OpenFileDialog openDialog;
 		private static SaveFileDialog saveDialog;
 
+		//Sets up the file dialogs
 		static ImageStream() {
 			openDialog = new OpenFileDialog();
 			openDialog.RestoreDirectory = true;
@@ -27,19 +36,31 @@ namespace EmguImageStream{
 			saveDialog.FilterIndex = 6;
 		}
 
-		private VideoCapture capture;
-		private Mat imageBuffer;
-		private Stopwatch timer = new Stopwatch();
-		private InputStreamListener listener;
-		private FPSCounter fpsCounter = new FPSCounter();
+		private ImageStreamListener listener; //Listener that will recieve events
+		private VideoCapture capture; //EmguCV class that assists in loading camera/files
+		private Mat imageBuffer; //The last image that was grabbed, used for taking screenshots
+		private Stopwatch timer = new Stopwatch(); //Used to set the correct FPS for video playback.
+		private FPSCounter fpsCounter = new FPSCounter(); //Calculates the FPS.
 
+		/// <value>The image width of the image from the current input source.</value>
 		public int Width { get { lock (streamLock) { if (capture == null) return 0; else return capture.Width; } } }
+
+		/// <value>The image height of the image from the current input source.</value>
 		public int Height { get { lock (streamLock) { if (capture == null) return 0; else return capture.Height; } } }
+
+		/// <value>The width and height of the image from the current input source.</value>
+		public Size Size { get { lock (streamLock) { if (capture == null) return new Size(0, 0); else return new Size(capture.Width, capture.Height); } } }
+
+		/// <value>Whether or not there is an opened input source.</value>
 		public bool IsOpened { get { lock (streamLock) { if (capture == null) return false; else return capture.IsOpened; } } }
+
+		/// <value>The target FPS defined by the input source.</value>
 		public float TargetFPS { get; private set; } = 0f;
+
+		/// <value>The estimated measured FPS that is being achieved. Not accurate, but close.</value>
 		public float FPS { get; private set; } = 0f;
 
-		private bool flipHorizontal = false;
+		/// <value>Whether or not the input image should be flipped horizontally.</value>
 		public bool FlipHorizontal {
 			get {
 				return flipHorizontal;
@@ -52,8 +73,9 @@ namespace EmguImageStream{
 				}
 			}
 		}
+		private bool flipHorizontal = false;
 
-		private bool flipVertical = false;
+		/// <value>Whether or not the input image should be flipped vertically.</value>
 		public bool FlipVertical {
 			get {
 				return flipVertical;
@@ -66,11 +88,12 @@ namespace EmguImageStream{
 				}
 			}
 		}
+		private bool flipVertical = false;
 
 
 		//TODO add capture type (camera, video, image)
 
-		public ImageStream(InputStreamListener streamListener) {
+		public ImageStream(ImageStreamListener streamListener) {
 			this.listener = streamListener;
 		}
 		
@@ -78,6 +101,12 @@ namespace EmguImageStream{
 			Dispose();
 		}
 
+		/// <summary>
+		/// Stops the stream and releases any inputs that were being used. Image buffer is cleared and FPS is reset to zero.
+		/// </summary>
+		/// <remarks>
+		/// Unlike most implementations of Dispose, the class can still be used after calling Dispose().
+		/// </remarks>
 		public void Dispose() {
 			lock (streamLock) {
 				if (capture != null) capture.Dispose();
@@ -88,6 +117,7 @@ namespace EmguImageStream{
 			}
 		}
 
+		//Method event listener that fires when a new image is grabbed from source.
 		private void onNewImage(object sender, EventArgs e) {
 			lock (listenerLock) {
 				Mat tempBuffer = null;
@@ -100,7 +130,7 @@ namespace EmguImageStream{
 					tempBuffer = imageBuffer;
 				}
 
-				if (tempBuffer != null) listener.onNewImage(tempBuffer); //Use temp buffer so imageBuffer can be modified without cause for threading concern.
+				if (tempBuffer != null) listener.ImageStream_onNewImage(tempBuffer); //Use temp buffer so imageBuffer can be modified without cause for threading concern.
 				int msDelay = (int)(1000.0 / TargetFPS);
 				long timerMS = timer.ElapsedMilliseconds;
 				msDelay = ((timerMS <= int.MaxValue) ? (msDelay - (int)timerMS) : 0);
@@ -110,28 +140,47 @@ namespace EmguImageStream{
 			}
 		}
 
-		public void Play() {
+		/// <summary>
+		/// Starts or resumes the selected input source and starts grabbing images. 
+		/// When an image is grabbed, onNewImage is fired.
+		/// </summary>
+		/// <returns>true if the source was successfully started.</returns>
+		public bool Play() {
 			lock (streamLock) {
-				if (capture != null && capture.IsOpened) capture.Start();
+				if (capture != null && capture.IsOpened) {
+					capture.Start();
+					return true;
+				} else {
+					return false;
+				}
 			}
 
 		}
 
+		/// <summary>
+		/// Stops grabbing images from the source until resumed.
+		/// </summary>
 		public void Pause() {
 			lock (streamLock) {
 				capture.Stop();
 			}
 		}
 
+		/// <summary>
+		/// Closes the input and fires onStreamEnded event.
+		/// </summary>
 		public void Stop() {
 			lock (streamLock) {
 				Dispose();
 				lock (listenerLock) { //Ensures that event is fired only after image grabbed by capture is finished sending.
-					listener.onStreamEnded();
+					listener.ImageStream_onStreamEnded();
 				}
 			}
 		}
 
+		/// <summary>
+		/// Selects the default camera as the source.
+		/// </summary>
 		public void SelectCamera() {
 			lock (streamLock) {
 				Stop();
@@ -140,6 +189,10 @@ namespace EmguImageStream{
 			}
 		}
 
+		/// <summary>
+		/// Select a camera with the specified index as the source.
+		/// </summary>
+		/// <param name="index">Index of camera to be selected.</param>
 		public void SelectCamera(int index) {
 			lock (streamLock) {
 				Stop();
@@ -148,21 +201,35 @@ namespace EmguImageStream{
 			}
 		}
 
-		public bool LoadFile(string file) {
-			if (file == null) return false;
+		/// <summary>
+		/// Loads a file to be used as the source. Supports most image and video files.
+		/// </summary>
+		/// <param name="filepath">Full path to the file to be loaded.</param>
+		/// <returns>true if the file was successfully loaded.</returns>
+		public bool LoadFile(string filepath) {
+			if (filepath == null) return false;
 			lock (streamLock) {
-				if (!File.Exists(file)) return false; //Wait until here to check if file exists, in case we had to wait for the lock to be released.
+				if (!File.Exists(filepath)) return false; //Wait until here to check if file exists, in case we had to wait for the lock to be released.
 				Stop();
-				capture = new VideoCapture(file);
+				capture = new VideoCapture(filepath);
 				setupCapture();
 				return true;
 			}
 		}
 
+		/// <summary>
+		/// Loads a file from the local solution files.
+		/// </summary>
+		/// <param name="filepath">Relative path to file from solution root file.</param>
+		/// <returns>true of the file was successfully loaded.</returns>
 		public bool LoadLocalFile(string filepath) {
 			return LoadFile(System.IO.Directory.GetCurrentDirectory() + "\\" + filepath); //NOTE: '\\' translates to '\' in a string, because it is a special character.
 		}
 
+		/// <summary>
+		/// Prompts the user to select a file, then attempts to load the selected file as the source.
+		/// </summary>
+		/// <returns>true if the file was successfully loaded, also returns false if user cancelled operation.</returns>
 		public bool PromptUserLoadFile() {
 			if (openDialog.ShowDialog() == DialogResult.OK) {
 				return LoadFile(openDialog.FileName);
@@ -171,6 +238,7 @@ namespace EmguImageStream{
 			}
 		}
 
+		//Sets up a capture so it is ready to use.
 		private void setupCapture() {
 			capture.ImageGrabbed += onNewImage;
 			capture.FlipHorizontal = flipHorizontal;
@@ -178,6 +246,7 @@ namespace EmguImageStream{
 			imageBuffer = new Mat();
 		}
 
+		//Captures a screenshot, returns null if it can't
 		private Mat captureScreenshot() {
 			Mat screenshot = new Mat();
 			lock (streamLock) {
@@ -188,18 +257,35 @@ namespace EmguImageStream{
 			return screenshot;
 		}
 
-		public bool SaveScreenshot(string file) {
-			if (file == null) return false;
+		/// <summary>
+		/// Take a screenshot and save it to the file specified.
+		/// </summary>
+		/// <remarks>
+		/// The path should include the file name and extension.
+		/// </remarks>
+		/// <param name="filepath">The full path to where the file should be saved.</param>
+		/// <returns>true if the screenshot was successfully saved.</returns>
+		public bool SaveScreenshot(string filepath) {
+			if (filepath == null) return false;
 			Mat screenshot = captureScreenshot();
 			if (screenshot == null) return false;
-			screenshot.Save(file);
+			screenshot.Save(filepath);
 			return true;
 		}
 
+		/// <summary>
+		/// Takes a screenshot and saves it to local solution files.
+		/// </summary>
+		/// <param name="filepath">Relative path to save location in solution files.</param>
+		/// <returns>true if successfully saved.</returns>
 		public bool SaveLocalScreenshot(string filepath) {
 			return SaveScreenshot(System.IO.Directory.GetCurrentDirectory() + "\\" + filepath); //NOTE: '\\' translates to '\' in a string, because it is a special character.
 		}
 
+		/// <summary>
+		/// Takes a screenshot and prompts the user to select a save location and extension.
+		/// </summary>
+		/// <returns>true if successfully saved, also returns false if user cancelled operation.</returns>
 		public bool PromptUserSaveScreenshot() {
 			Mat screenshot = captureScreenshot();
 			if (screenshot == null) return false;
@@ -214,8 +300,23 @@ namespace EmguImageStream{
 
 	}
 
-	public interface InputStreamListener {
-		void onNewImage(Mat image); //Fired when a new image is grabbed from the stream.
-		void onStreamEnded(); //Fired when the running stream is stopped and disposed. Must select a new stream for play() to work.
+	/// <summary>
+	/// Interface used to recieve ImageStream events
+	/// </summary>
+	public interface ImageStreamListener {
+
+		/// <summary>
+		/// Event fired when a new image is grabbed from the source.
+		/// </summary>
+		/// <param name="image"></param>
+		void ImageStream_onNewImage(Mat image); 
+
+		/// <summary>
+		/// Fired after the stream is stopped and disposed.
+		/// </summary>
+		/// <remarks>
+		/// After this is fired, you must select a new input before you can call Play() again.
+		/// </remarks>
+		void ImageStream_onStreamEnded(); 
 	}
 }

@@ -10,7 +10,7 @@ using System.Windows.Forms;
 using Emgu.CV;
 
 namespace EmguImageStream {
-	public partial class Form1 : Form, InputStreamListener {
+	public partial class Form1 : Form, ImageStreamListener {
 
 		private ImageStream stream;
 
@@ -23,13 +23,13 @@ namespace EmguImageStream {
 			
 		}
 
-		public void onNewImage(Mat image) {
+		public void ImageStream_onNewImage(Mat image) {
 			DisplayBox.Image = image.Bitmap;
 			StatusTargetFPS.Text = "Target FPS: " + stream.TargetFPS.ToString("N2");
 			StatusFPS.Text = "FPS: " + stream.FPS.ToString("N2");
 		}
 
-		public void onStreamEnded() {
+		public void ImageStream_onStreamEnded() {
 			DisplayBox.Image = null; 
 		}
 
