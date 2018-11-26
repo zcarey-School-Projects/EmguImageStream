@@ -25,6 +25,8 @@ namespace EmguImageStream {
 
 		public void onNewImage(Mat image) {
 			DisplayBox.Image = image.Bitmap;
+			StatusTargetFPS.Text = "Target FPS: " + stream.TargetFPS.ToString("N2");
+			StatusFPS.Text = "FPS: " + stream.FPS.ToString("N2");
 		}
 
 		public void onStreamEnded() {
@@ -54,12 +56,12 @@ namespace EmguImageStream {
 		}
 
 		private void LoadFromFile_Click(object sender, EventArgs e) {
-			stream.SelectFile(ImageStream.PromptUserLoadFile());
+			stream.PromptUserLoadFile();
 			stream.Play();
 		}
 
 		private void Screenshot_Click(object sender, EventArgs e) {
-			//TODO screenshot
+			stream.PromptUserSaveScreenshot();
 		}
 
 		private void FlipVert_CheckedChanged(object sender, EventArgs e) {
@@ -68,6 +70,15 @@ namespace EmguImageStream {
 
 		private void FlipHoriz_CheckedChanged(object sender, EventArgs e) {
 			stream.FlipHorizontal = FlipHoriz.Checked;
+		}
+
+		private void Quicksave_Click(object sender, EventArgs e) {
+			stream.SaveLocalScreenshot("Quicksave.jpg");
+		}
+
+		private void Quickload_Click(object sender, EventArgs e) {
+			stream.LoadLocalFile("Quicksave.jpg");
+			stream.Play();
 		}
 	}
 }

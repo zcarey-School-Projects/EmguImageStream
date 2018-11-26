@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Windows.Forms;
 using Emgu.CV;
@@ -9,6 +10,7 @@ namespace EmguImageStream{
 	public class ImageStream : IDisposable {
 
 		private static readonly object streamLock = new object();
+		private static readonly object listenerLock = new object();
 
 		private static OpenFileDialog openDialog;
 		private static SaveFileDialog saveDialog;
@@ -28,11 +30,14 @@ namespace EmguImageStream{
 		private VideoCapture capture;
 		private Mat imageBuffer;
 		private Stopwatch timer = new Stopwatch();
-		private InputStreamListener temp;
+		private InputStreamListener listener;
+		private FPSCounter fpsCounter = new FPSCounter();
 
 		public int Width { get { lock (streamLock) { if (capture == null) return 0; else return capture.Width; } } }
 		public int Height { get { lock (streamLock) { if (capture == null) return 0; else return capture.Height; } } }
 		public bool IsOpened { get { lock (streamLock) { if (capture == null) return false; else return capture.IsOpened; } } }
+		public float TargetFPS { get; private set; } = 0f;
+		public float FPS { get; private set; } = 0f;
 
 		private bool flipHorizontal = false;
 		public bool FlipHorizontal {
@@ -63,23 +68,12 @@ namespace EmguImageStream{
 		}
 
 
-		//TODO add capute type (camera, video, image)
+		//TODO add capture type (camera, video, image)
 
-		//Uses default camera
-		public ImageStream(InputStreamListener temp) {
-			this.temp = temp;
+		public ImageStream(InputStreamListener streamListener) {
+			this.listener = streamListener;
 		}
-		/*
-		public ImageStream(InputStreamListener temp, string file) {
-			this.temp = temp;
-			if (file == null) capture = new VideoCapture();
-			else capture = new VideoCapture(file);
-			capture.ImageGrabbed += onNewImage;
-			//if (capture.IsOpened) Console.WriteLine("FPS: " + capture.GetCaptureProperty(Emgu.CV.CvEnum.CapProp.Fps));
-			capture.Start();
-
-		}
-		*/
+		
 		~ImageStream() {
 			Dispose();
 		}
@@ -88,29 +82,32 @@ namespace EmguImageStream{
 			lock (streamLock) {
 				if (capture != null) capture.Dispose();
 				capture = null;
-				if (imageBuffer != null) imageBuffer.Dispose();
+				//We do NOT want to dispose imageBuffer, in the case the image is being used elsewhere!
 				imageBuffer = null;
+				fpsCounter.Reset();
 			}
 		}
 
 		private void onNewImage(object sender, EventArgs e) {
-			double targetFramerate = 15;
-			Mat tempBuffer = null;
-			lock (streamLock) {
-				if (capture == null || !capture.IsOpened /*|| capture.Ptr == IntPtr.Zero*/) return;
-				capture.Retrieve(imageBuffer); //Documentation says gray image, but actually retrieves a colored image. //TODO nullptr checks
-				targetFramerate = capture.GetCaptureProperty(CapProp.Fps);
-				tempBuffer = imageBuffer;
-			}
+			lock (listenerLock) {
+				Mat tempBuffer = null;
+				timer.Restart();
+				FPS = fpsCounter.Tick();
+				lock (streamLock) {
+					if (capture == null || !capture.IsOpened /*|| capture.Ptr == IntPtr.Zero*/) return;
+					capture.Retrieve(imageBuffer); //Documentation says gray image, but actually retrieves a colored image. //TODO nullptr checks
+					TargetFPS = (float)capture.GetCaptureProperty(CapProp.Fps);
+					tempBuffer = imageBuffer;
+				}
 
-			if (tempBuffer != null) temp.onNewImage(tempBuffer); //Use temp buffer so imageBuffer can be modified without cause for threading concern.
-			Thread.Sleep((int)(1000.0 / targetFramerate)); 
-			//TODO use timer.
-			/*long ms = timer.ElapsedMilliseconds;
-				if (ms < int.MaxValue) {
-					int waitTime = (1000 / 15) - (int)ms;
-					if (waitTime > 0) Thread.Sleep(waitTime);
-				}*/
+				if (tempBuffer != null) listener.onNewImage(tempBuffer); //Use temp buffer so imageBuffer can be modified without cause for threading concern.
+				int msDelay = (int)(1000.0 / TargetFPS);
+				long timerMS = timer.ElapsedMilliseconds;
+				msDelay = ((timerMS <= int.MaxValue) ? (msDelay - (int)timerMS) : 0);
+
+				if(msDelay > 0) Thread.Sleep(msDelay);
+				
+			}
 		}
 
 		public void Play() {
@@ -129,7 +126,9 @@ namespace EmguImageStream{
 		public void Stop() {
 			lock (streamLock) {
 				Dispose();
-				temp.onStreamEnded();
+				lock (listenerLock) { //Ensures that event is fired only after image grabbed by capture is finished sending.
+					listener.onStreamEnded();
+				}
 			}
 		}
 
@@ -137,10 +136,7 @@ namespace EmguImageStream{
 			lock (streamLock) {
 				Stop();
 				capture = new VideoCapture();
-				capture.ImageGrabbed += onNewImage;
-				capture.FlipHorizontal = flipHorizontal;
-				capture.FlipVertical = flipVertical;
-				imageBuffer = new Mat();
+				setupCapture();
 			}
 		}
 
@@ -148,30 +144,71 @@ namespace EmguImageStream{
 			lock (streamLock) {
 				Stop();
 				capture = new VideoCapture(index);
-				capture.ImageGrabbed += onNewImage;
-				capture.FlipHorizontal = flipHorizontal;
-				capture.FlipVertical = flipVertical;
-				imageBuffer = new Mat();
+				setupCapture();
 			}
 		}
 
-		public void SelectFile(string file) {
+		public bool LoadFile(string file) {
+			if (file == null) return false;
 			lock (streamLock) {
-				if (file == null) return;
+				if (!File.Exists(file)) return false; //Wait until here to check if file exists, in case we had to wait for the lock to be released.
 				Stop();
 				capture = new VideoCapture(file);
-				capture.ImageGrabbed += onNewImage;
-				capture.FlipHorizontal = flipHorizontal;
-				capture.FlipVertical = flipVertical;
-				imageBuffer = new Mat();
+				setupCapture();
+				return true;
 			}
 		}
 
-		public static string PromptUserLoadFile() {
+		public bool LoadLocalFile(string filepath) {
+			return LoadFile(System.IO.Directory.GetCurrentDirectory() + "\\" + filepath); //NOTE: '\\' translates to '\' in a string, because it is a special character.
+		}
+
+		public bool PromptUserLoadFile() {
 			if (openDialog.ShowDialog() == DialogResult.OK) {
-				return openDialog.FileName;
+				return LoadFile(openDialog.FileName);
 			} else {
-				return null;
+				return false;
+			}
+		}
+
+		private void setupCapture() {
+			capture.ImageGrabbed += onNewImage;
+			capture.FlipHorizontal = flipHorizontal;
+			capture.FlipVertical = flipVertical;
+			imageBuffer = new Mat();
+		}
+
+		private Mat captureScreenshot() {
+			Mat screenshot = new Mat();
+			lock (streamLock) {
+				if (imageBuffer == null) return null;
+				imageBuffer.CopyTo(screenshot);
+			}
+			if (screenshot.IsEmpty) return null;
+			return screenshot;
+		}
+
+		public bool SaveScreenshot(string file) {
+			if (file == null) return false;
+			Mat screenshot = captureScreenshot();
+			if (screenshot == null) return false;
+			screenshot.Save(file);
+			return true;
+		}
+
+		public bool SaveLocalScreenshot(string filepath) {
+			return SaveScreenshot(System.IO.Directory.GetCurrentDirectory() + "\\" + filepath); //NOTE: '\\' translates to '\' in a string, because it is a special character.
+		}
+
+		public bool PromptUserSaveScreenshot() {
+			Mat screenshot = captureScreenshot();
+			if (screenshot == null) return false;
+
+			if(saveDialog.ShowDialog() == DialogResult.OK) {
+				screenshot.Save(saveDialog.FileName);
+				return true;
+			} else {
+				return false;
 			}
 		}
 

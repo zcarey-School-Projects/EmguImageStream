@@ -33,7 +33,13 @@
 			this.Play = new System.Windows.Forms.Button();
 			this.FlipVert = new System.Windows.Forms.CheckBox();
 			this.FlipHoriz = new System.Windows.Forms.CheckBox();
+			this.Quicksave = new System.Windows.Forms.Button();
+			this.Quickload = new System.Windows.Forms.Button();
+			this.statusStrip1 = new System.Windows.Forms.StatusStrip();
+			this.StatusTargetFPS = new System.Windows.Forms.ToolStripStatusLabel();
+			this.StatusFPS = new System.Windows.Forms.ToolStripStatusLabel();
 			((System.ComponentModel.ISupportInitialize)(this.DisplayBox)).BeginInit();
+			this.statusStrip1.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// DisplayBox
@@ -43,7 +49,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.DisplayBox.Location = new System.Drawing.Point(12, 12);
 			this.DisplayBox.Name = "DisplayBox";
-			this.DisplayBox.Size = new System.Drawing.Size(776, 354);
+			this.DisplayBox.Size = new System.Drawing.Size(776, 300);
 			this.DisplayBox.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
 			this.DisplayBox.TabIndex = 0;
 			this.DisplayBox.TabStop = false;
@@ -51,7 +57,7 @@
 			// Cam0
 			// 
 			this.Cam0.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.Cam0.Location = new System.Drawing.Point(12, 405);
+			this.Cam0.Location = new System.Drawing.Point(12, 362);
 			this.Cam0.Name = "Cam0";
 			this.Cam0.Size = new System.Drawing.Size(93, 23);
 			this.Cam0.TabIndex = 1;
@@ -62,7 +68,7 @@
 			// Cam1
 			// 
 			this.Cam1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.Cam1.Location = new System.Drawing.Point(111, 405);
+			this.Cam1.Location = new System.Drawing.Point(111, 362);
 			this.Cam1.Name = "Cam1";
 			this.Cam1.Size = new System.Drawing.Size(93, 23);
 			this.Cam1.TabIndex = 2;
@@ -73,7 +79,7 @@
 			// LoadFromFile
 			// 
 			this.LoadFromFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.LoadFromFile.Location = new System.Drawing.Point(210, 405);
+			this.LoadFromFile.Location = new System.Drawing.Point(210, 362);
 			this.LoadFromFile.Name = "LoadFromFile";
 			this.LoadFromFile.Size = new System.Drawing.Size(93, 23);
 			this.LoadFromFile.TabIndex = 3;
@@ -84,7 +90,7 @@
 			// Screenshot
 			// 
 			this.Screenshot.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.Screenshot.Location = new System.Drawing.Point(309, 405);
+			this.Screenshot.Location = new System.Drawing.Point(309, 362);
 			this.Screenshot.Name = "Screenshot";
 			this.Screenshot.Size = new System.Drawing.Size(93, 23);
 			this.Screenshot.TabIndex = 4;
@@ -95,7 +101,7 @@
 			// Stop
 			// 
 			this.Stop.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.Stop.Location = new System.Drawing.Point(695, 405);
+			this.Stop.Location = new System.Drawing.Point(696, 362);
 			this.Stop.Name = "Stop";
 			this.Stop.Size = new System.Drawing.Size(93, 23);
 			this.Stop.TabIndex = 5;
@@ -106,7 +112,7 @@
 			// Pause
 			// 
 			this.Pause.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.Pause.Location = new System.Drawing.Point(596, 405);
+			this.Pause.Location = new System.Drawing.Point(597, 362);
 			this.Pause.Name = "Pause";
 			this.Pause.Size = new System.Drawing.Size(93, 23);
 			this.Pause.TabIndex = 6;
@@ -117,7 +123,7 @@
 			// Play
 			// 
 			this.Play.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.Play.Location = new System.Drawing.Point(497, 405);
+			this.Play.Location = new System.Drawing.Point(498, 362);
 			this.Play.Name = "Play";
 			this.Play.Size = new System.Drawing.Size(93, 23);
 			this.Play.TabIndex = 7;
@@ -127,8 +133,9 @@
 			// 
 			// FlipVert
 			// 
+			this.FlipVert.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.FlipVert.AutoSize = true;
-			this.FlipVert.Location = new System.Drawing.Point(12, 378);
+			this.FlipVert.Location = new System.Drawing.Point(12, 335);
 			this.FlipVert.Name = "FlipVert";
 			this.FlipVert.Size = new System.Drawing.Size(103, 21);
 			this.FlipVert.TabIndex = 8;
@@ -138,8 +145,9 @@
 			// 
 			// FlipHoriz
 			// 
+			this.FlipHoriz.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
 			this.FlipHoriz.AutoSize = true;
-			this.FlipHoriz.Location = new System.Drawing.Point(210, 378);
+			this.FlipHoriz.Location = new System.Drawing.Point(210, 335);
 			this.FlipHoriz.Name = "FlipHoriz";
 			this.FlipHoriz.Size = new System.Drawing.Size(120, 21);
 			this.FlipHoriz.TabIndex = 9;
@@ -147,11 +155,62 @@
 			this.FlipHoriz.UseVisualStyleBackColor = true;
 			this.FlipHoriz.CheckedChanged += new System.EventHandler(this.FlipHoriz_CheckedChanged);
 			// 
+			// Quicksave
+			// 
+			this.Quicksave.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.Quicksave.Location = new System.Drawing.Point(12, 391);
+			this.Quicksave.Name = "Quicksave";
+			this.Quicksave.Size = new System.Drawing.Size(93, 23);
+			this.Quicksave.TabIndex = 10;
+			this.Quicksave.Text = "Quicksave";
+			this.Quicksave.UseVisualStyleBackColor = true;
+			this.Quicksave.Click += new System.EventHandler(this.Quicksave_Click);
+			// 
+			// Quickload
+			// 
+			this.Quickload.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.Quickload.Location = new System.Drawing.Point(111, 391);
+			this.Quickload.Name = "Quickload";
+			this.Quickload.Size = new System.Drawing.Size(93, 23);
+			this.Quickload.TabIndex = 11;
+			this.Quickload.Text = "Quickload";
+			this.Quickload.UseVisualStyleBackColor = true;
+			this.Quickload.Click += new System.EventHandler(this.Quickload_Click);
+			// 
+			// statusStrip1
+			// 
+			this.statusStrip1.ImageScalingSize = new System.Drawing.Size(20, 20);
+			this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.StatusTargetFPS,
+            this.StatusFPS});
+			this.statusStrip1.Location = new System.Drawing.Point(0, 414);
+			this.statusStrip1.Name = "statusStrip1";
+			this.statusStrip1.Size = new System.Drawing.Size(800, 25);
+			this.statusStrip1.TabIndex = 12;
+			this.statusStrip1.Text = "statusStrip1";
+			// 
+			// StatusTargetFPS
+			// 
+			this.StatusTargetFPS.Name = "StatusTargetFPS";
+			this.StatusTargetFPS.Size = new System.Drawing.Size(84, 20);
+			this.StatusTargetFPS.Text = "Target FPS: ";
+			// 
+			// StatusFPS
+			// 
+			this.StatusFPS.Margin = new System.Windows.Forms.Padding(100, 3, 0, 2);
+			this.StatusFPS.Name = "StatusFPS";
+			this.StatusFPS.RightToLeft = System.Windows.Forms.RightToLeft.No;
+			this.StatusFPS.Size = new System.Drawing.Size(39, 20);
+			this.StatusFPS.Text = "FPS: ";
+			// 
 			// Form1
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(800, 440);
+			this.ClientSize = new System.Drawing.Size(800, 439);
+			this.Controls.Add(this.statusStrip1);
+			this.Controls.Add(this.Quickload);
+			this.Controls.Add(this.Quicksave);
 			this.Controls.Add(this.FlipHoriz);
 			this.Controls.Add(this.FlipVert);
 			this.Controls.Add(this.Play);
@@ -166,6 +225,8 @@
 			this.Text = "Form1";
 			this.Load += new System.EventHandler(this.Form1_Load);
 			((System.ComponentModel.ISupportInitialize)(this.DisplayBox)).EndInit();
+			this.statusStrip1.ResumeLayout(false);
+			this.statusStrip1.PerformLayout();
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -183,6 +244,11 @@
 		private System.Windows.Forms.Button Play;
 		private System.Windows.Forms.CheckBox FlipVert;
 		private System.Windows.Forms.CheckBox FlipHoriz;
+		private System.Windows.Forms.Button Quicksave;
+		private System.Windows.Forms.Button Quickload;
+		private System.Windows.Forms.StatusStrip statusStrip1;
+		private System.Windows.Forms.ToolStripStatusLabel StatusTargetFPS;
+		private System.Windows.Forms.ToolStripStatusLabel StatusFPS;
 	}
 }
 
